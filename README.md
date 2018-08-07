@@ -58,6 +58,10 @@ From source:
 
     go get -u github.com/rs/moquette
 
+Using docker (assuming the `conf/` directory contains your handlers):
+
+    docker run -it --rm -v $(pwd)/conf:/etc/moquette.d poitrus/moquette -broker tcp://<broker_ip>:1883
+
 ## Licenses
 
 All source code is licensed under the [MIT License](https://raw.github.com/rs/moquette/master/LICENSE).
