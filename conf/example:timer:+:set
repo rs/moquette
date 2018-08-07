@@ -1,0 +1,8 @@
+#!/bin/bash
+
+n=$1
+while [ $n -ge 0 ]; do
+    sleep 1
+    echo -e "PUB ${MQTT_TOPIC%*set}tick 0 ${#n}\n$n" >&3
+    ((n--))
+done

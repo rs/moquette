@@ -1,0 +1,3 @@
+#!/bin/bash
+
+echo -e "PUB ${MQTT_TOPIC%*in}out 0 ${#1}\n$1" >&3
