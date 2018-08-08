@@ -1,3 +1,9 @@
 #!/bin/bash
+#
+# This handler responds to any event written on a matching topic, and sends back
+# an event on the same topic by replacing "in" by "out".
+#
+# For instance, sending "hello world" to example/echo/test/in will send back
+# "hello world" to the topic example/echo/test/out.
 
 echo -e "PUB ${MQTT_TOPIC%*in}out 0 ${#1}\n$1" >&3

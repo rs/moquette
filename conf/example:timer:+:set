@@ -1,4 +1,8 @@
 #!/bin/bash
+#
+# This handler sends a tick every second for n seconds when n is sent to a
+# matching topic. Ticks are sent on the same topic with the last "set" component
+# replaced by "tick".
 
 n=$1
 while [ $n -ge 0 ]; do
