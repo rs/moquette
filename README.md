@@ -1,6 +1,6 @@
 # Moquette — MQTT Service Dispatcher
 
-Moquette is to MQTT what inetd is to IP. Moquette listens for events from an MQTT broker and executes a process (event handler) found in its configuration directory if its name matches the event's topic. The matching obeys to the MQTT topic rules. Slashes in the topic are replaced by commas (:).
+Moquette is to MQTT what inetd is to IP. Moquette listens for events from an MQTT broker and executes a process (event handler) found in its configuration directory if its name matches the event's topic. The matching obeys to the MQTT topic rules. Slashes in the topic are replaced by colon (:).
 
 For instance, the following file names will all match the topic `home/office/lamp/setOn`:
 
