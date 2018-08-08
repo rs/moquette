@@ -48,6 +48,9 @@ For instance, sending "hello world" to `example/echo/test/in` will send back "he
 ```bash
 #!/bin/bash
 
+# Kill concurrent run of ourselves
+echo "KILL $MQTT_TOPIC" >&3
+
 n=$1
 while [ $n -ge 0 ]; do
     sleep 1
@@ -57,6 +60,8 @@ done
 ```
 
 This handler sends a tick every second for `n` seconds when `n` is sent to a matching topic. Ticks are sent on the same topic with the last `set` component replaced by `tick`.
+
+Note that we introduced the `KILL` command here. A `KILL` followed by a topic, will kill all existing running commands that match the provided topic. The current process is never killed, even if the topic matches.
 
 ## Install
 

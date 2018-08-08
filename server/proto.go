@@ -11,6 +11,10 @@ type protoReader struct {
 	buf *bufio.Reader
 }
 
+type command interface {
+	String() string
+}
+
 type event struct {
 	Topic   string
 	QoS     byte
@@ -18,21 +22,38 @@ type event struct {
 }
 
 func (ev event) String() string {
-	return fmt.Sprintf("%s %v: %s", ev.Topic, ev.QoS, ev.Payload)
+	return fmt.Sprintf("PUB %s %v: %s", ev.Topic, ev.QoS, ev.Payload)
+}
+
+type kill struct {
+	Topic string
+}
+
+func (k kill) String() string {
+	return fmt.Sprintf("KILL %s", k.Topic)
 }
 
 func newProtoReader(r io.Reader) protoReader {
 	return protoReader{bufio.NewReader(r)}
 }
 
-func (p protoReader) Next() (ev event, err error) {
+func (p protoReader) Next() (command, error) {
 	cmd, err := p.buf.ReadString(' ')
 	if err != nil {
-		return ev, err
+		return nil, err
 	}
-	if cmd != "PUB " {
-		return ev, fmt.Errorf("invalid command (%s)", cmd)
+	cmd = strings.ToUpper(strings.TrimSpace(cmd))
+	switch cmd {
+	case "PUB":
+		return p.parsePub()
+	case "KILL":
+		return p.parseKill()
+	default:
+		return nil, fmt.Errorf("invalid command (%s)", cmd)
 	}
+}
+
+func (p protoReader) parsePub() (ev event, err error) {
 	if ev.Topic, err = p.buf.ReadString(' '); err != nil {
 		return ev, fmt.Errorf("can't parse topic: %v", err)
 	}
@@ -67,5 +88,13 @@ func (p protoReader) Next() (ev event, err error) {
 		// Clean optional return after payload
 		p.buf.Discard(1)
 	}
+	return
+}
+
+func (p protoReader) parseKill() (k kill, err error) {
+	if k.Topic, err = p.buf.ReadString('\n'); err != nil {
+		return k, fmt.Errorf("can't parse topic: %v", err)
+	}
+	k.Topic = strings.TrimSpace(k.Topic)
 	return
 }

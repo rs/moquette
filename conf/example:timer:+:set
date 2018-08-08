@@ -4,6 +4,9 @@
 # matching topic. Ticks are sent on the same topic with the last "set" component
 # replaced by "tick".
 
+# Kill concurrent run of ourselves
+echo "KILL $MQTT_TOPIC" >&3
+
 n=$1
 while [ $n -ge 0 ]; do
     sleep 1
