@@ -50,7 +50,7 @@ func (s *Server) Run(stop chan struct{}) error {
 	return nil
 }
 
-func (s *Server) intputHandler(p *os.Process, r io.Reader) {
+func (s *Server) inputHandler(p *os.Process, r io.Reader) {
 	proto := newProtoReader(r)
 	for {
 		cmd, err := proto.Next()
@@ -104,7 +104,7 @@ func (s *Server) handleMessage(msg mqtt.Message) {
 	if err := c.Start(); err != nil {
 		log.Printf("%s: %v", cmd, err)
 	}
-	go s.intputHandler(c.Process, r)
+	go s.inputHandler(c.Process, r)
 	log.Printf("executing %s %s (pid: %d)", cmd, p, c.Process.Pid)
 	s.addProc(c.Process, topic)
 	defer s.removeProc(c.Process)
