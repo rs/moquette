@@ -97,10 +97,10 @@ func (s *Server) handleMessage(msg mqtt.Message) {
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	c.ExtraFiles = []*os.File{w}
-	c.Env = []string{
+	c.Env = append(os.Environ(),
 		fmt.Sprintf("MQTT_TOPIC=%s", msg.Topic()),
-		fmt.Sprintf("MQTT_MSGID=%d", msg.MessageID()),
-	}
+		fmt.Sprintf("MQTT_MSGID=%d", msg.MessageID()))
+
 	if err := c.Start(); err != nil {
 		log.Printf("%s: %v", cmd, err)
 	}
