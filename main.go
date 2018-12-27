@@ -39,7 +39,7 @@ func main() {
 	} else {
 		viper.SetConfigName("moquette")
 		viper.AddConfigPath(".")
-		viper.AddConfigPath("$HOME/.local/config/moquette")
+		viper.AddConfigPath("$HOME/.config/moquette")
 		viper.AddConfigPath("/etc/moquette/")
 		viper.AddConfigPath("/etc/")
 
