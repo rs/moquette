@@ -1,4 +1,4 @@
-package server
+package main
 
 import (
 	"fmt"
@@ -9,10 +9,9 @@ import (
 	"sync"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"moquette/router"
 )
 
-type Server struct {
+type server struct {
 	conf   string
 	sep    string
 	client mqtt.Client
@@ -20,8 +19,8 @@ type Server struct {
 	mu     sync.RWMutex
 }
 
-func New(mqttOpts *mqtt.ClientOptions, confDir, sep string) *Server {
-	s := &Server{
+func NewServer(mqttOpts *mqtt.ClientOptions, confDir, sep string) *server {
+	s := &server{
 		conf:  confDir,
 		sep:   sep,
 		procs: map[*os.Process]string{},
@@ -40,7 +39,7 @@ func New(mqttOpts *mqtt.ClientOptions, confDir, sep string) *Server {
 	return s
 }
 
-func (s *Server) Run(stop chan struct{}) error {
+func (s *server) Run(stop chan struct{}) error {
 	if token := s.client.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
@@ -50,7 +49,7 @@ func (s *Server) Run(stop chan struct{}) error {
 	return nil
 }
 
-func (s *Server) inputHandler(p *os.Process, r io.Reader) {
+func (s *server) inputHandler(p *os.Process, r io.Reader) {
 	proto := newProtoReader(r)
 	for {
 		cmd, err := proto.Next()
@@ -70,14 +69,14 @@ func (s *Server) inputHandler(p *os.Process, r io.Reader) {
 	}
 }
 
-func (s *Server) handleMessage(msg mqtt.Message) {
-	rt := router.Router{
+func (s *server) handleMessage(msg mqtt.Message) {
+	rt := Router{
 		Dir: s.conf,
 		Sep: s.sep,
 	}
 	topic := msg.Topic()
 	cmd, err := rt.Match(topic)
-	if err == router.ErrNotFound || cmd == "" {
+	if err == ErrNotFound || cmd == "" {
 		return
 	}
 	if err != nil {
@@ -113,19 +112,19 @@ func (s *Server) handleMessage(msg mqtt.Message) {
 	}
 }
 
-func (s *Server) addProc(p *os.Process, topic string) {
+func (s *server) addProc(p *os.Process, topic string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.procs[p] = topic
 }
 
-func (s *Server) removeProc(p *os.Process) {
+func (s *server) removeProc(p *os.Process) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.procs, p)
 }
 
-func (s *Server) kill(topic string, except *os.Process) {
+func (s *server) kill(topic string, except *os.Process) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for p, t := range s.procs {

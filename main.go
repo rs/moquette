@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/viper"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"moquette/server"
 )
 
 func main() {
@@ -87,7 +86,7 @@ func main() {
 		log.Print("Connected")
 	})
 
-	s := server.New(connOpts, confDir, sep)
+	s := NewServer(connOpts, confDir, sep)
 	stop := make(chan struct{})
 	if err := s.Run(stop); err != nil {
 		panic(err)
