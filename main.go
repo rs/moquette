@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/viper"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/rs/moquette/server"
+	"moquette/server"
 )
 
 func main() {

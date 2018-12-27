@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/rs/moquette/router"
+	"moquette/router"
 )
 
 type Server struct {
