@@ -51,6 +51,8 @@ func (s *server) Run(stop chan struct{}) error {
 
 func (s *server) inputHandler(p *os.Process, r io.Reader, wg *sync.WaitGroup) {
 	proto := newProtoReader(r)
+	defer wg.Done()
+
 	for {
 		cmd, err := proto.Next()
 		if err != nil {
@@ -67,7 +69,6 @@ func (s *server) inputHandler(p *os.Process, r io.Reader, wg *sync.WaitGroup) {
 			s.kill(t.Topic, p)
 		}
 	}
-	wg.Done()
 }
 
 func (s *server) handleMessage(msg mqtt.Message) {
@@ -90,7 +91,6 @@ func (s *server) handleMessage(msg mqtt.Message) {
 		return
 	}
 	defer r.Close()
-	defer w.Close()
 	p := string(msg.Payload())
 	c := exec.Command(cmd, p)
 	c.Dir = s.conf
@@ -104,15 +104,27 @@ func (s *server) handleMessage(msg mqtt.Message) {
 	if err := c.Start(); err != nil {
 		log.Printf("%s: %v", cmd, err)
 	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go s.inputHandler(c.Process, r, &wg)
+
 	log.Printf("executing %s %s (pid: %d)", cmd, p, c.Process.Pid)
 	s.addProc(c.Process, topic)
 	defer s.removeProc(c.Process)
+
 	if err := c.Wait(); err != nil {
 		log.Printf("%s: %v", cmd, err)
 	}
+
+	// Due to all the mess of threads going on, we can't defer
+	// the closing of the pipe -- we close it to indicate
+	// that no more input will appear,
+	// which generates an EOF on the read end,
+	// which lets the inputHandler complete,
+	// which lets *this* goroutine complete and clean up.
+	w.Close()
+
 	wg.Wait()
 }
 
