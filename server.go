@@ -1,4 +1,4 @@
-package server
+package main
 
 import (
 	"fmt"
@@ -9,10 +9,9 @@ import (
 	"sync"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/rs/moquette/router"
 )
 
-type Server struct {
+type server struct {
 	conf   string
 	sep    string
 	client mqtt.Client
@@ -20,8 +19,8 @@ type Server struct {
 	mu     sync.RWMutex
 }
 
-func New(mqttOpts *mqtt.ClientOptions, confDir, sep string) *Server {
-	s := &Server{
+func NewServer(mqttOpts *mqtt.ClientOptions, confDir, sep string) *server {
+	s := &server{
 		conf:  confDir,
 		sep:   sep,
 		procs: map[*os.Process]string{},
@@ -40,7 +39,7 @@ func New(mqttOpts *mqtt.ClientOptions, confDir, sep string) *Server {
 	return s
 }
 
-func (s *Server) Run(stop chan struct{}) error {
+func (s *server) Run(stop chan struct{}) error {
 	if token := s.client.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
@@ -50,8 +49,10 @@ func (s *Server) Run(stop chan struct{}) error {
 	return nil
 }
 
-func (s *Server) intputHandler(p *os.Process, r io.Reader) {
+func (s *server) inputHandler(p *os.Process, r io.Reader, wg *sync.WaitGroup) {
 	proto := newProtoReader(r)
+	defer wg.Done()
+
 	for {
 		cmd, err := proto.Next()
 		if err != nil {
@@ -70,14 +71,14 @@ func (s *Server) intputHandler(p *os.Process, r io.Reader) {
 	}
 }
 
-func (s *Server) handleMessage(msg mqtt.Message) {
-	rt := router.Router{
+func (s *server) handleMessage(msg mqtt.Message) {
+	rt := Router{
 		Dir: s.conf,
 		Sep: s.sep,
 	}
 	topic := msg.Topic()
 	cmd, err := rt.Match(topic)
-	if err == router.ErrNotFound || cmd == "" {
+	if err == ErrNotFound || cmd == "" {
 		return
 	}
 	if err != nil {
@@ -90,42 +91,56 @@ func (s *Server) handleMessage(msg mqtt.Message) {
 		return
 	}
 	defer r.Close()
-	defer w.Close()
 	p := string(msg.Payload())
 	c := exec.Command(cmd, p)
 	c.Dir = s.conf
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	c.ExtraFiles = []*os.File{w}
-	c.Env = []string{
+	c.Env = append(os.Environ(),
 		fmt.Sprintf("MQTT_TOPIC=%s", msg.Topic()),
-		fmt.Sprintf("MQTT_MSGID=%d", msg.MessageID()),
-	}
+		fmt.Sprintf("MQTT_MSGID=%d", msg.MessageID()))
+
 	if err := c.Start(); err != nil {
 		log.Printf("%s: %v", cmd, err)
 	}
-	go s.intputHandler(c.Process, r)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go s.inputHandler(c.Process, r, &wg)
+
 	log.Printf("executing %s %s (pid: %d)", cmd, p, c.Process.Pid)
 	s.addProc(c.Process, topic)
 	defer s.removeProc(c.Process)
+
 	if err := c.Wait(); err != nil {
 		log.Printf("%s: %v", cmd, err)
 	}
+
+	// Due to all the mess of threads going on, we can't defer
+	// the closing of the pipe -- we close it to indicate
+	// that no more input will appear,
+	// which generates an EOF on the read end,
+	// which lets the inputHandler complete,
+	// which lets *this* goroutine complete and clean up.
+	w.Close()
+
+	wg.Wait()
 }
 
-func (s *Server) addProc(p *os.Process, topic string) {
+func (s *server) addProc(p *os.Process, topic string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.procs[p] = topic
 }
 
-func (s *Server) removeProc(p *os.Process) {
+func (s *server) removeProc(p *os.Process) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.procs, p)
 }
 
-func (s *Server) kill(topic string, except *os.Process) {
+func (s *server) kill(topic string, except *os.Process) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for p, t := range s.procs {
